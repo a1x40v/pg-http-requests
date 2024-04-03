@@ -1,3 +1,6 @@
+using System.Net;
+using System.Net.Sockets;
+
 namespace PGHttpRequests.Services;
 
 public class MyHttpClient
@@ -6,7 +9,24 @@ public class MyHttpClient
 
     public MyHttpClient()
     {
-        _httpClient = new HttpClient();
+        var handler = new SocketsHttpHandler
+        {
+            ConnectCallback = async (context, cancellationToken) =>
+            {
+                var socket = new Socket(SocketType.Stream, ProtocolType.Tcp) { NoDelay = true };
+                var localIpAddress = new IPAddress(new byte[] { 176, 119, 147, 201 });
+                var localEndPoint = new IPEndPoint(localIpAddress, 0);
+                socket.Bind(localEndPoint);
+
+                var host = context.DnsEndPoint.Host;
+                var port = context.DnsEndPoint.Port;
+                await socket.ConnectAsync(host, port);
+
+                return new NetworkStream(socket, ownsSocket: true);
+            },
+        };
+
+        _httpClient = new HttpClient(handler);
     }
 
     public async Task GetAsync(string url)
